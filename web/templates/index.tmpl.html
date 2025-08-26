@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title>Page Analyzer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <style>
+        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 40px; }
+        form { display: flex; gap: 8px; max-width: 720px; }
+        input[type="text"] { flex: 1; padding: 10px; font-size: 16px; }
+        button { padding: 10px 16px; font-size: 16px; cursor: pointer; }
+        .hint { color: #666; margin-top: 12px; }
+        .box { margin-top: 24px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; }
+        code { background: #f6f8fa; padding: 2px 6px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+<h1>Page Analyzer</h1>
+<p class="hint">Enter a URL to analyze. For now the backend returns a JSON placeholder; we’ll add real analysis next.</p>
+
+<form method="post" action="/analyze" onsubmit="return submitForm(event)">
+    <input type="text" name="url" placeholder="https://example.com" required />
+    <button type="submit">Analyze</button>
+</form>
+
+<div id="out" class="box" hidden>
+    <h3>Result</h3>
+    <pre id="json"></pre>
+</div>
+
+<script>
+    async function submitForm(e) {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const res = await fetch('/analyze', { method: 'POST', body: fd });
+      const out = document.getElementById('out');
+      const pre = document.getElementById('json');
+      if (!res.ok) {
+        pre.textContent = `Error: ${res.status} ${res.statusText}`;
+        out.hidden = false;
+        return false;
+      }
+      const data = await res.json();
+      pre.textContent = JSON.stringify(data, null, 2);
+      out.hidden = false;
+      return false;
+    }
+</script>
+</body>
+</html>

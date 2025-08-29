@@ -3,11 +3,13 @@ package analyzer
 import (
 	"context"
 	"fmt"
-	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
-	"github.com/chanaka-withanage/page-analyzer/pkg/contract"
 	"github.com/chanaka-withanage/page-analyzer/internal/fetch"
+	"github.com/chanaka-withanage/page-analyzer/internal/parser"
+	"github.com/chanaka-withanage/page-analyzer/pkg/contract"
 )
 
 type Service struct {
@@ -19,6 +21,7 @@ func New(fetchClient *fetch.Client) *Service {
 }
 
 func (s *Service) Analyze(ctx context.Context, p contract.AnalyzeParams) (*contract.AnalyzeResult, error) {
+
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(p.FetchTimeoutSeconds)*time.Second)
 	defer cancel()
 
@@ -41,8 +44,37 @@ func (s *Service) Analyze(ctx context.Context, p contract.AnalyzeParams) (*contr
 		return res, fmt.Errorf("upstream returned %d", resp.StatusCode)
 	}
 
-	// Read/Discard now; next step we'll parse.
-	n, _ := io.Copy(io.Discard, body)
-	res.Warnings = append(res.Warnings, fmt.Sprintf("fetched %d bytes, parsing to be added", n))
+	// parse HTML
+	u, _ := url.Parse(p.URL)
+	parsed, err := parser.Parse(body, u)
+	if err != nil {
+		res.Errors = append(res.Errors, err.Error())
+		return res, err
+	}
+
+	// fill results
+	res.HTMLVersion = parsed.HTMLVersion
+	res.Title = parsed.Title
+	res.Headings = parsed.Headings
+	res.LoginFormPresent = parsed.LoginFormPresent
+
+	// classify links
+	host := u.Host
+	for _, l := range parsed.Links {
+		lu, err := url.Parse(l)
+		if err != nil {
+			continue
+		}
+		if sameHost(host, lu.Host) {
+			res.LinksInternal++
+		} else {
+			res.LinksExternal++
+		}
+	}
+
 	return res, nil
+}
+
+func sameHost(a, b string) bool {
+	return strings.EqualFold(a, b)
 }

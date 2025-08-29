@@ -3,8 +3,8 @@ package fetch
 import (
 	"context"
 	"errors"
-	"io"
 	"net"
+	"io"          // 👈 add this
 	"net/http"
 	"net/url"
 	"time"
@@ -71,9 +71,12 @@ func (c *Client) Get(ctx context.Context, raw string) (*http.Response, io.ReadCl
 	}
 	req.Header.Set("User-Agent", "GoPageAnalyzer/1.0")
 
-	resp, err := c.hc.Do(req)
-	if err != nil {
-		return nil, nil, err
-	}
-	return resp, io.NopCloser(io.LimitedReader{R: resp.Body, N: c.maxBytes}), nil
+    resp, err := c.hc.Do(req)
+    if err != nil {
+        return nil, nil, err
+    }
+    // Wrap body to enforce a hard cap (defense vs. huge pages)
+    lr := &io.LimitedReader{R: resp.Body, N: c.maxBytes}
+    return resp, io.NopCloser(lr), nil
+
 }

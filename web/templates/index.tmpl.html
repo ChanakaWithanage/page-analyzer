@@ -32,6 +32,11 @@
     async function submitForm(e) {
       e.preventDefault();
       const fd = new FormData(e.target);
+
+      for (const [key, value] of fd.entries()) {
+          console.log("FormData:", key, value);
+        }
+
       const res = await fetch('/analyze', { method: 'POST', body: fd });
       const out = document.getElementById('out');
       const pre = document.getElementById('json');

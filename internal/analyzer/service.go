@@ -10,6 +10,7 @@ import (
 	"github.com/chanaka-withanage/page-analyzer/internal/fetch"
 	"github.com/chanaka-withanage/page-analyzer/internal/parser"
 	"github.com/chanaka-withanage/page-analyzer/pkg/contract"
+	"github.com/chanaka-withanage/page-analyzer/internal/linkcheck"
 )
 
 type Service struct {
@@ -60,17 +61,32 @@ func (s *Service) Analyze(ctx context.Context, p contract.AnalyzeParams) (*contr
 
 	// classify links
 	host := u.Host
-	for _, l := range parsed.Links {
-		lu, err := url.Parse(l)
-		if err != nil {
-			continue
-		}
-		if sameHost(host, lu.Host) {
-			res.LinksInternal++
-		} else {
-			res.LinksExternal++
-		}
-	}
+    var urlObjs []*url.URL
+    for _, l := range parsed.Links {
+    	lu, err := url.Parse(l)
+    	if err != nil {
+    		continue
+    	}
+    	urlObjs = append(urlObjs, lu)
+    	if sameHost(host, lu.Host) {
+    		res.LinksInternal++
+    	} else {
+    		res.LinksExternal++
+    	}
+    }
+
+    if len(urlObjs) > 0 {
+    	checker := linkcheck.New(10, 2, 3*time.Second) // tune: 10 global, 2 per-host, 3s timeout
+    	results := checker.Validate(ctx, urlObjs)
+
+    	bad := 0
+    	for _, r := range results {
+    		if !r.Accessible {
+    			bad++
+    		}
+    	}
+    	res.LinksInaccessible = bad
+    }
 
 	return res, nil
 }

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"log"
 )
 
 var indexTpl = template.Must(template.ParseFiles(filepath.Join("web", "templates", "index.tmpl.html")))
@@ -22,6 +23,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 }
 
 func analyze(w http.ResponseWriter, r *http.Request) {
+    log.Printf("analyze11: raw url form value = %q", r.FormValue("url"))
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -35,6 +37,8 @@ func analyze(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "url is required", http.StatusBadRequest)
 		return
 	}
+
+    log.Printf("analyze22: raw url form value = %q", r.FormValue("url"))
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		http.Error(w, "please provide a valid http(s) URL", http.StatusBadRequest)

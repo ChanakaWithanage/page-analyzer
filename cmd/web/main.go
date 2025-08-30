@@ -8,11 +8,15 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/chanaka-withanage/page-analyzer/internal/gateway"
+    "github.com/chanaka-withanage/page-analyzer/internal/fetch"
+    "github.com/chanaka-withanage/page-analyzer/internal/analyzer"
+    "github.com/chanaka-withanage/page-analyzer/internal/gateway"
 )
 
 func main() {
-	handler := gateway.NewMux()
+	f := fetch.New(10*time.Second, 5, 4<<20) // 10s timeout, 5 redirects, 4MB cap
+    svc := analyzer.New(f)
+    handler := gateway.NewMuxWithService(svc)
 
 	srv := &http.Server{
 		Addr:         ":8080",

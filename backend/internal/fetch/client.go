@@ -18,7 +18,7 @@ type Client struct {
 
 func New(timeout time.Duration, maxRedirects int, maxBytes int64) *Client {
 	tr := http.DefaultTransport.(*http.Transport).Clone()
-	tr.ResponseHeaderTimeout = 10 * time.Second
+	tr.ResponseHeaderTimeout = 30 * time.Second
 
 	return &Client{
 		hc: &http.Client{

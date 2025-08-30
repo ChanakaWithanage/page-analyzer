@@ -3,11 +3,11 @@ package gateway
 import (
 	"encoding/json"
 	"html/template"
+	"log"
 	"net/http"
 	"net/url"
 	"path/filepath"
 	"strings"
-	"log"
 
 	"github.com/chanaka-withanage/page-analyzer/pkg/contract"
 )
@@ -29,7 +29,6 @@ func (s *server) analyze(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Expect JSON body like { "url": "https://example.com" }
 	var body struct {
 		URL string `json:"url"`
 	}
@@ -52,8 +51,8 @@ func (s *server) analyze(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res, err := s.svc.Analyze(r.Context(), contract.AnalyzeParams{
-		URL:                 u.String(),
-		FetchTimeoutSeconds: 10,
+		URL: u.String(),
+		// FetchTimeoutSeconds is handled by Service default now
 	})
 
 	status := http.StatusOK

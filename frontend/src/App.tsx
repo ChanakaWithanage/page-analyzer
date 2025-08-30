@@ -1,13 +1,22 @@
 import { useState } from "react";
+import Input from "./components/Input";
+import Button from "./components/Button";
+import Card from "./components/Card";
+import ErrorMessage from "./components/ErrorMessage";
+import Loader from "./components/Loader";
 
 function App() {
   const [url, setUrl] = useState("");
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   async function analyze(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setResult(null);
+    setLoading(true);
+
     try {
       const res = await fetch("http://localhost:8080/api/analyze", {
         method: "POST",
@@ -21,40 +30,39 @@ function App() {
       setResult(data);
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div style={{ margin: "2rem", fontFamily: "sans-serif" }}>
-      <h1>Page Analyzer</h1>
-      <form onSubmit={analyze}>
-        <input
-          type="text"
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center px-4 py-12">
+      <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-8">
+        Page Analyzer
+      </h1>
+
+      <form
+        onSubmit={analyze}
+        className="w-full max-w-xl flex items-center gap-3 mb-6"
+      >
+        <Input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://example.com"
-          style={{ width: "400px", padding: "8px" }}
         />
-        <button type="submit" style={{ marginLeft: "8px", padding: "8px 16px" }}>
-          Analyze
-        </button>
+        <Button type="submit" disabled={loading || !url}>
+          {loading ? <Loader size="sm" /> : "Analyze"}
+        </Button>
       </form>
 
-      {error && <p style={{ color: "red" }}>Error: {error}</p>}
+      {error && <ErrorMessage message={error} />}
 
       {result && (
-        <pre
-          style={{
-            marginTop: "1rem",
-            background: "#1e1e1e",  // dark background
-            color: "#0f0",          // bright green text
-            padding: "1rem",
-            borderRadius: "8px",
-            overflowX: "auto"
-          }}
-        >
-          {JSON.stringify(result, null, 2)}
-        </pre>
+        <Card>
+          <pre className="text-sm text-gray-800 dark:text-green-400 whitespace-pre-wrap">
+            {JSON.stringify(result, null, 2)}
+          </pre>
+        </Card>
       )}
     </div>
   );

@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: page-analyzer-backend
+    environment:
+      - PORT=8080
+      - FETCH_TIMEOUT_SECONDS=30
+      - FETCH_MAX_REDIRECTS=5
+      - FETCH_MAX_BYTES=4194304
+    ports:
+      - "8080:8080"
+    networks:
+      - page-analyzer-net
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: page-analyzer-frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    networks:
+      - page-analyzer-net
+
+networks:
+  page-analyzer-net:
+    driver: bridge

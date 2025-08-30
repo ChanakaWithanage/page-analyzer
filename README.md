@@ -16,6 +16,7 @@ The project consists of:
 - [Getting Started](#getting-started)
 - [Running Tests](#running-tests)
 - [Deployment](#deployment)
+- [Docker Setup](#docker-setup)
 - [Documentation](#documentation)
 - [Future Improvements](#future-improvements)
 
@@ -96,16 +97,9 @@ go test ./... -cover
 
 ## Deployment
 
-Using Docker
+Backend Deployment
 ```bash
-# build backend image
-docker build -t page-analyzer-backend ./backend
-
-# run container
-docker run -p 8080:8080 \
-  -e PORT=8080 \
-  -e FETCH_TIMEOUT_SECONDS=20 \
-  page-analyzer-backend
+make run
 ```
 Frontend Deployment
 ```bash
@@ -113,6 +107,40 @@ cd frontend
 npm run build
 ```
 The dist/ folder can be deployed to any static host (Netlify, Vercel, or S3+CloudFront).
+
+---
+
+## Docker Setup
+
+This project provides Dockerfiles for both backend and frontend, and a deploy/docker-compose.yml for running them together.
+
+### Build and Run with Compose
+
+From the deploy/ folder:
+
+```bash
+docker-compose up --build
+```
+Services:
+
+- Backend → http://localhost:8080
+
+- Frontend → http://localhost:3000 (proxies /api to backend)
+
+### Standalone Backend
+From /backend folder
+```bash
+docker build -t page-analyzer-backend ./backend
+docker run -p 8080:8080 page-analyzer-backend
+```
+### Standalone Frontend
+From /frontend folder
+```bash
+docker build -t page-analyzer-frontend ./frontend
+docker run -p 3000:80 page-analyzer-frontend
+```
+The frontend container uses nginx and proxies API calls to the backend.
+
 
 ---
 

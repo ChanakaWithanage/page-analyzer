@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/url"
 	"strings"
+	"strconv"
 
 	"github.com/PuerkitoBio/goquery"
 	"golang.org/x/net/html"
@@ -13,7 +14,7 @@ type Parsed struct {
 	HTMLVersion      string
 	Title            string
 	Headings         map[string]int
-	Links            []string // absolute, resolved
+	Links            []string
 	LoginFormPresent bool
 }
 
@@ -36,9 +37,9 @@ func Parse(r io.Reader, base *url.URL) (*Parsed, error) {
 	// --- Headings h1..h6
 	h := map[string]int{}
 	for i := 1; i <= 6; i++ {
-		tag := "h" + string('0'+i)
-		h[tag] = doc.Find(tag).Length()
-	}
+        tag := "h" + strconv.Itoa(i) // ✅ fixed
+        h[tag] = doc.Find(tag).Length()
+    }
 
 	// --- Links
 	var links []string
@@ -76,7 +77,6 @@ func Parse(r io.Reader, base *url.URL) (*Parsed, error) {
 	}, nil
 }
 
-// detectDoctype inspects the doctype node to decide HTML version
 func detectDoctype(n *html.Node) string {
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		if c.Type == html.DoctypeNode {

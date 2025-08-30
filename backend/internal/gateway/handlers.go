@@ -2,26 +2,13 @@ package gateway
 
 import (
 	"encoding/json"
-	"html/template"
+	"log"
 	"net/http"
 	"net/url"
-	"path/filepath"
 	"strings"
-	"log"
 
 	"github.com/chanaka-withanage/page-analyzer/pkg/contract"
 )
-
-var indexTpl = template.Must(template.ParseFiles(filepath.Join("web", "templates", "index.tmpl.html")))
-
-func (s *server) index(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = indexTpl.Execute(w, nil)
-}
 
 func (s *server) analyze(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -29,7 +16,6 @@ func (s *server) analyze(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Expect JSON body like { "url": "https://example.com" }
 	var body struct {
 		URL string `json:"url"`
 	}
@@ -52,8 +38,7 @@ func (s *server) analyze(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res, err := s.svc.Analyze(r.Context(), contract.AnalyzeParams{
-		URL:                 u.String(),
-		FetchTimeoutSeconds: 10,
+		URL: u.String(),
 	})
 
 	status := http.StatusOK

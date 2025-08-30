@@ -15,7 +15,6 @@ type server struct {
 func NewMuxWithService(svc *analyzer.Service) http.Handler {
     s := &server{svc: svc}
     mux := http.NewServeMux()
-    mux.HandleFunc("/", s.index)
     mux.HandleFunc("/api/analyze", s.analyze)
     mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
         w.WriteHeader(http.StatusOK)

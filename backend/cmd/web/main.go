@@ -8,21 +8,26 @@ import (
 	"os/signal"
 	"time"
 
-    "github.com/chanaka-withanage/page-analyzer/internal/fetch"
-    "github.com/chanaka-withanage/page-analyzer/internal/analyzer"
-    "github.com/chanaka-withanage/page-analyzer/internal/gateway"
+	"github.com/chanaka-withanage/page-analyzer/internal/analyzer"
+	"github.com/chanaka-withanage/page-analyzer/internal/config"
+	"github.com/chanaka-withanage/page-analyzer/internal/fetch"
+	"github.com/chanaka-withanage/page-analyzer/internal/gateway"
 )
 
 func main() {
-	f := fetch.New(10*time.Second, 5, 4<<20) // 10s timeout, 5 redirects, 4MB cap
-    svc := analyzer.New(f)
-    handler := gateway.NewMuxWithService(svc)
+	cfg := config.Load()
+
+	f := fetch.New(cfg.FetchTimeout, cfg.MaxRedirects, cfg.MaxBytes)
+	svc := analyzer.New(f)
+	svc.SetDefaultTimeout(cfg.FetchTimeout)
+
+	handler := gateway.NewMuxWithService(svc)
 
 	srv := &http.Server{
-		Addr:         ":8080",
+		Addr:         ":" + cfg.Port,
 		Handler:      handler,
 		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
-	"io"          // 👈 add this
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -14,46 +14,52 @@ type Client struct {
 	hc           *http.Client
 	maxBytes     int64
 	maxRedirects int
+	allowLocal   bool
 }
 
 func New(timeout time.Duration, maxRedirects int, maxBytes int64) *Client {
-	tr := http.DefaultTransport.(*http.Transport).Clone()
-	tr.ResponseHeaderTimeout = 10 * time.Second
+    tr := http.DefaultTransport.(*http.Transport).Clone()
+    tr.ResponseHeaderTimeout = 30 * time.Second
 
-	return &Client{
-		hc: &http.Client{
-			Timeout:   timeout,
-			Transport: tr,
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				if len(via) >= maxRedirects {
-					return http.ErrUseLastResponse
-				}
-				return nil
-			},
-		},
-		maxBytes:     maxBytes,
-		maxRedirects: maxRedirects,
-	}
+    return &Client{
+        hc: &http.Client{
+            Timeout:   timeout,
+            Transport: tr,
+            CheckRedirect: func(req *http.Request, via []*http.Request) error {
+                if len(via) >= maxRedirects {
+                    return http.ErrUseLastResponse
+                }
+                return nil
+            },
+        },
+        maxBytes:     maxBytes,
+        maxRedirects: maxRedirects,
+        allowLocal:   false,
+    }
+}
+
+func (c *Client) AllowLocal() {
+    c.allowLocal = true
 }
 
 var ErrPrivateAddr = errors.New("refusing to fetch private address")
 
 //SSRF guard
 func (c *Client) guard(u *url.URL) error {
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return errors.New("unsupported scheme")
-	}
-	addrs, err := net.DefaultResolver.LookupIPAddr(context.Background(), u.Hostname())
-	if err != nil {
-		return err
-	}
-	for _, a := range addrs {
-		ip := a.IP
-		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsMulticast() {
-			return ErrPrivateAddr
-		}
-	}
-	return nil
+    if u.Scheme != "http" && u.Scheme != "https" {
+        return errors.New("unsupported scheme")
+    }
+    addrs, err := net.DefaultResolver.LookupIPAddr(context.Background(), u.Hostname())
+    if err != nil {
+        return err
+    }
+    for _, a := range addrs {
+        ip := a.IP
+        if !c.allowLocal && (ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsMulticast()) {
+            return ErrPrivateAddr
+        }
+    }
+    return nil
 }
 
 func (c *Client) Get(ctx context.Context, raw string) (*http.Response, io.ReadCloser, error) {

@@ -24,43 +24,41 @@ func (s *server) index(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) analyze(w http.ResponseWriter, r *http.Request) {
-
 	if r.Method != http.MethodPost {
-        http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-        return
-    }
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
-    if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
-        if err := r.ParseMultipartForm(10 << 20); err != nil { // 10MB max memory
-            http.Error(w, "invalid multipart form", http.StatusBadRequest)
-            return
-        }
-    } else {
-        if err := r.ParseForm(); err != nil {
-            http.Error(w, "invalid form", http.StatusBadRequest)
-            return
-        }
-    }
+	// Expect JSON body like { "url": "https://example.com" }
+	var body struct {
+		URL string `json:"url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
 
-    raw := strings.TrimSpace(r.FormValue("url"))
-    log.Printf("DEBUG: got url=%q", raw)
-    if raw == "" {
-        http.Error(w, "url is required", http.StatusBadRequest)
-        return
-    }
+	raw := strings.TrimSpace(body.URL)
+	log.Printf("DEBUG: got url=%q", raw)
+	if raw == "" {
+		http.Error(w, "url is required", http.StatusBadRequest)
+		return
+	}
 
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		http.Error(w, "please provide a valid http(s) URL", http.StatusBadRequest); return
+		http.Error(w, "please provide a valid http(s) URL", http.StatusBadRequest)
+		return
 	}
 
 	res, err := s.svc.Analyze(r.Context(), contract.AnalyzeParams{
 		URL:                 u.String(),
 		FetchTimeoutSeconds: 10,
 	})
+
 	status := http.StatusOK
 	if err != nil {
-		status = http.StatusBadGateway // upstream issues
+		status = http.StatusBadGateway
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

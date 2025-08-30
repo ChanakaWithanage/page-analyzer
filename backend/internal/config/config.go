@@ -27,7 +27,6 @@ func Load() Config {
 	}
 }
 
-// Helpers
 func getEnv(key string, defaultVal string) string {
 	if val := os.Getenv(key); val != "" {
 		return val

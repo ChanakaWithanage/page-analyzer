@@ -12,9 +12,12 @@ The project consists of:
 ## 📑 Table of Contents
 
 - [Features](#features)
+- [Technologies Used](#technologies-used)
+- [External Dependencies](#external-dependencies)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
-- [Running Tests](#running-tests)
+- [Observability](#-observability)
+- [Testing & Coverage](#testing--coverage)
 - [Deployment](#deployment)
 - [Docker Setup](#docker-setup)
 - [Documentation](#documentation)
@@ -35,11 +38,41 @@ The project consists of:
 
 ---
 
+## Technologies Used
+
+### Backend
+- Go 1.23+
+- net/http (standard server)
+- slog (structured logging)
+- goquery + x/net/html (DOM parsing)
+- sync.WaitGroup, channels (concurrency)
+- Prometheus client (metrics)
+
+### Frontend
+- React 18 + TypeScript
+- Vite (build tool)
+- TailwindCSS (styling)
+
+### Infra
+- Docker + Docker Compose
+- Nginx (serves frontend in container)
+
+---
+
+## External Dependencies
+
+- `github.com/PuerkitoBio/goquery` → HTML parsing
+- `golang.org/x/net/html` → DOM parsing
+- `log/slog` → structured logging
+- React, Vite, Tailwind, TypeScript → frontend stack
+
+---
+
 ## 📂 Project Structure
 
 ```bash
 page-analyzer/
-├── backend/                # Go backend
+├── backend/
 │   ├── cmd/web/            # Main entrypoint
 │   ├── internal/
 │   │   ├── analyzer/       # Core orchestration
@@ -48,9 +81,9 @@ page-analyzer/
 │   │   ├── linkcheck/      # Concurrent link validation
 │   │   └── gateway/        # HTTP handlers
 │   └── pkg/contract/       # Shared DTOs
-├── frontend/               # React + TypeScript + Tailwind frontend
+├── frontend/               # React + TypeScript + Tailwind
 ├── docs/                   # Documentation
-│   └── ARCHITECTURE.md     # Architecture decisions
+│   └── ARCHITECTURE.md
 └── deploy/                 # Docker manifests
 ```
 
@@ -66,7 +99,8 @@ page-analyzer/
 ### Backend
 ```bash
 cd backend
-go run ./cmd/web
+go mod tidy        # install dependencies
+go run ./cmd/web   # start backend
 ```
 ##### The API will be available at http://localhost:8080
 
@@ -80,18 +114,65 @@ npm run dev
 
 ---
 
-## Running Tests
+## 🛠 Observability
 
-Run all backend tests:
+### pprof Profiling
+The backend can expose Go’s built-in **pprof** profiler for CPU, heap, and goroutine debugging.  
+
+profiling endpoints are available at:
+
+- http://localhost:6060/debug/pprof/
+- Example CPU profile: 
+```bash
+  go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
+```
+
+This runs a 30s CPU profile and opens the interactive analysis shell (`top10`, `list`, `web`, etc.).
+
+---
+
+### Prometheus Metrics
+The backend can also expose **Prometheus-compatible metrics** to monitor requests and latencies.
+
+Metrics are exposed at:
+
+- http://localhost:8080/metrics
+
+Example metrics:
+```bash
+page_analyzer_requests_total{path="/api/analyze",method="POST",status="200"} 5
+page_analyzer_request_duration_seconds_bucket{path="/api/analyze",le="0.5"} 3
+```
+You can scrape these with Prometheus and visualize in Grafana.
+
+---
+
+##  Testing & Coverage
+
+Unit tests cover core logic (analyzer orchestration, fetch client, parser, link checker, gateway).  
+Some glue code (like `cmd/web`, `config`, `pkg/contract`) is intentionally excluded from coverage reports.
+
+### Run Tests
 ```bash
 cd backend
 go test ./... -v
 ```
-Run with coverage:
+### Coverage
+Focused coverage on business logic packages:
 ```bash
 cd backend
-go test ./... -cover
+go test -cover ./internal/analyzer ./internal/fetch ./internal/gateway ./internal/linkcheck ./internal/parser
 ```
+
+Coverage results:
+
+- internal/analyzer → ~85%
+- internal/fetch → ~75%
+- internal/gateway → ~70%
+- internal/linkcheck → ~85%
+- internal/parser → ~68%
+
+Overall coverage (excluding bootstrap/config) is ~80%.
 
 ---
 
@@ -154,7 +235,6 @@ Detailed design and architectural decisions can be found in:
 ## Future Improvements
 
 - Caching analysis results
-- Asynchronous processing with worker queues
 - Database storage for history
 - Authentication and rate limiting
 - CI/CD integration

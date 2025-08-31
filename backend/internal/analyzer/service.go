@@ -3,6 +3,7 @@ package analyzer
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"strings"
 	"time"
@@ -19,7 +20,6 @@ type Service struct {
 }
 
 func New(fetchClient *fetch.Client) *Service {
-	// fallback to 30s if not overridden
 	return &Service{fetch: fetchClient, defaultTimeout: 30 * time.Second}
 }
 
@@ -28,7 +28,6 @@ func (s *Service) SetDefaultTimeout(d time.Duration) {
 }
 
 func (s *Service) Analyze(ctx context.Context, p contract.AnalyzeParams) (*contract.AnalyzeResult, error) {
-	// pick timeout: explicit param > default
 	timeout := s.defaultTimeout
 	if p.FetchTimeoutSeconds > 0 {
 		timeout = time.Duration(p.FetchTimeoutSeconds) * time.Second
@@ -36,6 +35,9 @@ func (s *Service) Analyze(ctx context.Context, p contract.AnalyzeParams) (*contr
 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+
+	start := time.Now()
+	slog.Info("analysis started", "url", p.URL, "timeout", timeout)
 
 	res := &contract.AnalyzeResult{
 		URL:      p.URL,
@@ -46,31 +48,31 @@ func (s *Service) Analyze(ctx context.Context, p contract.AnalyzeParams) (*contr
 
 	resp, body, err := s.fetch.Get(ctx, p.URL)
 	if err != nil {
+		slog.Error("fetch failed", "url", p.URL, "err", err)
 		res.Errors = append(res.Errors, err.Error())
 		return res, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		slog.Warn("upstream returned non-2xx", "url", p.URL, "status", resp.StatusCode)
 		res.Errors = append(res.Errors, fmt.Sprintf("upstream status: %d", resp.StatusCode))
 		return res, fmt.Errorf("upstream returned %d", resp.StatusCode)
 	}
 
-	// parse HTML
 	u, _ := url.Parse(p.URL)
 	parsed, err := parser.Parse(body, u)
 	if err != nil {
+		slog.Error("parse failed", "url", p.URL, "err", err)
 		res.Errors = append(res.Errors, err.Error())
 		return res, err
 	}
 
-	// fill results
 	res.HTMLVersion = parsed.HTMLVersion
 	res.Title = parsed.Title
 	res.Headings = parsed.Headings
 	res.LoginFormPresent = parsed.LoginFormPresent
 
-	// classify links
 	host := u.Host
 	var urlObjs []*url.URL
 	for _, l := range parsed.Links {
@@ -86,9 +88,9 @@ func (s *Service) Analyze(ctx context.Context, p contract.AnalyzeParams) (*contr
 		}
 	}
 
-	// validate links concurrently
 	if len(urlObjs) > 0 {
-		checker := linkcheck.New(10, 2, s.defaultTimeout/2) // use half of default for per-link validation
+		slog.Debug("validating links", "url", p.URL, "count", len(urlObjs))
+		checker := linkcheck.New(10, 2, s.defaultTimeout/2)
 		results := checker.Validate(ctx, urlObjs)
 
 		bad := 0
@@ -98,7 +100,15 @@ func (s *Service) Analyze(ctx context.Context, p contract.AnalyzeParams) (*contr
 			}
 		}
 		res.LinksInaccessible = bad
+		slog.Info("link validation complete", "url", p.URL, "bad_links", bad)
 	}
+
+	slog.Info("analysis finished",
+		"url", p.URL,
+		"duration_ms", time.Since(start).Milliseconds(),
+		"title", res.Title,
+		"headings", len(res.Headings),
+	)
 
 	return res, nil
 }

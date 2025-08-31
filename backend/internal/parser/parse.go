@@ -2,9 +2,10 @@ package parser
 
 import (
 	"io"
+	"log/slog"
 	"net/url"
-	"strings"
 	"strconv"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	"golang.org/x/net/html"
@@ -19,29 +20,23 @@ type Parsed struct {
 }
 
 func Parse(r io.Reader, base *url.URL) (*Parsed, error) {
-
-	// parse into an html.Node tree
 	root, err := html.Parse(r)
 	if err != nil {
+		slog.Error("failed to parse HTML", "base_url", base.String(), "err", err)
 		return nil, err
 	}
 
 	doc := goquery.NewDocumentFromNode(root)
 
-	// --- HTML version
 	ver := detectDoctype(root)
-
-	// --- Title
 	title := strings.TrimSpace(doc.Find("title").First().Text())
 
-	// --- Headings h1..h6
 	h := map[string]int{}
 	for i := 1; i <= 6; i++ {
-        tag := "h" + strconv.Itoa(i) // ✅ fixed
-        h[tag] = doc.Find(tag).Length()
-    }
+		tag := "h" + strconv.Itoa(i)
+		h[tag] = doc.Find(tag).Length()
+	}
 
-	// --- Links
 	var links []string
 	doc.Find("a[href]").Each(func(_ int, s *goquery.Selection) {
 		href, ok := s.Attr("href")
@@ -54,7 +49,6 @@ func Parse(r io.Reader, base *url.URL) (*Parsed, error) {
 		}
 	})
 
-	// --- Login form detection
 	login := false
 	doc.Find("form").EachWithBreak(func(_ int, f *goquery.Selection) bool {
 		if f.Find(`input[type="password"]`).Length() > 0 {
@@ -68,13 +62,23 @@ func Parse(r io.Reader, base *url.URL) (*Parsed, error) {
 		return true
 	})
 
-	return &Parsed{
+	parsed := &Parsed{
 		HTMLVersion:      ver,
 		Title:            title,
 		Headings:         h,
 		Links:            links,
 		LoginFormPresent: login,
-	}, nil
+	}
+
+	slog.Debug("parsed HTML successfully",
+		"base_url", base.String(),
+		"title", parsed.Title,
+		"headings_total", len(parsed.Headings),
+		"links_total", len(parsed.Links),
+		"login_form_present", parsed.LoginFormPresent,
+	)
+
+	return parsed, nil
 }
 
 func detectDoctype(n *html.Node) string {
@@ -85,7 +89,6 @@ func detectDoctype(n *html.Node) string {
 				if c.Attr == nil || len(c.Attr) == 0 {
 					return "HTML5"
 				}
-				// crude heuristic: legacy doctypes
 				data := strings.ToLower(c.Data)
 				if strings.Contains(data, "xhtml 1.0") {
 					return "XHTML 1.0"

@@ -2,17 +2,21 @@ package gateway
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/chanaka-withanage/page-analyzer/pkg/contract"
 )
 
 func (s *server) analyze(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		slog.Warn("invalid method on /analyze", "method", r.Method)
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
@@ -20,22 +24,34 @@ func (s *server) analyze(w http.ResponseWriter, r *http.Request) {
 		URL string `json:"url"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		slog.Warn("invalid JSON payload", "err", err)
+		writeError(w, http.StatusBadRequest, "invalid JSON payload")
 		return
 	}
 
 	raw := strings.TrimSpace(body.URL)
-	log.Printf("DEBUG: got url=%q", raw)
 	if raw == "" {
-		http.Error(w, "url is required", http.StatusBadRequest)
+		slog.Warn("missing url field in request")
+		writeError(w, http.StatusBadRequest, "url is required")
 		return
 	}
 
-	u, err := url.Parse(raw)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		http.Error(w, "please provide a valid http(s) URL", http.StatusBadRequest)
+	// regex validation
+	if !isValidURL(raw) {
+		slog.Warn("url failed regex validation", "url", raw)
+		writeError(w, http.StatusBadRequest, "please provide a valid http(s) URL")
 		return
 	}
+
+	// strict parsing
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		slog.Warn("invalid URL after parse", "url", raw, "err", err)
+		writeError(w, http.StatusBadRequest, "please provide a valid http(s) URL")
+		return
+	}
+
+	slog.Info("starting analysis", "url", u.String())
 
 	res, err := s.svc.Analyze(r.Context(), contract.AnalyzeParams{
 		URL: u.String(),
@@ -43,9 +59,22 @@ func (s *server) analyze(w http.ResponseWriter, r *http.Request) {
 
 	status := http.StatusOK
 	if err != nil {
+		slog.Error("analysis failed",
+			"url", u.String(),
+			"err", err,
+			"duration_ms", time.Since(start).Milliseconds(),
+		)
 		status = http.StatusBadGateway
+	} else {
+		slog.Info("analysis succeeded",
+			"url", u.String(),
+			"duration_ms", time.Since(start).Milliseconds(),
+		)
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(res)
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		slog.Error("failed to encode response", "url", u.String(), "err", err)
+	}
 }

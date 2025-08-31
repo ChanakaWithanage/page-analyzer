@@ -23,9 +23,12 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
+
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error || `HTTP ${res.status}`);
       }
+
       const data = await res.json();
       setResult(data);
     } catch (err: any) {

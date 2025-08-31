@@ -16,7 +16,7 @@ func (s *server) analyze(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodPost {
 		slog.Warn("invalid method on /analyze", "method", r.Method)
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
@@ -25,21 +25,29 @@ func (s *server) analyze(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		slog.Warn("invalid JSON payload", "err", err)
-		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "invalid JSON payload")
 		return
 	}
 
 	raw := strings.TrimSpace(body.URL)
 	if raw == "" {
 		slog.Warn("missing url field in request")
-		http.Error(w, "url is required", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "url is required")
 		return
 	}
 
+	// regex validation
+	if !isValidURL(raw) {
+		slog.Warn("url failed regex validation", "url", raw)
+		writeError(w, http.StatusBadRequest, "please provide a valid http(s) URL")
+		return
+	}
+
+	// strict parsing
 	u, err := url.Parse(raw)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		slog.Warn("invalid URL submitted", "url", raw, "err", err)
-		http.Error(w, "please provide a valid http(s) URL", http.StatusBadRequest)
+	if err != nil || u.Host == "" {
+		slog.Warn("invalid URL after parse", "url", raw, "err", err)
+		writeError(w, http.StatusBadRequest, "please provide a valid http(s) URL")
 		return
 	}
 
@@ -51,10 +59,17 @@ func (s *server) analyze(w http.ResponseWriter, r *http.Request) {
 
 	status := http.StatusOK
 	if err != nil {
-		slog.Error("analysis failed", "url", u.String(), "err", err, "duration_ms", time.Since(start).Milliseconds())
+		slog.Error("analysis failed",
+			"url", u.String(),
+			"err", err,
+			"duration_ms", time.Since(start).Milliseconds(),
+		)
 		status = http.StatusBadGateway
 	} else {
-		slog.Info("analysis succeeded", "url", u.String(), "duration_ms", time.Since(start).Milliseconds())
+		slog.Info("analysis succeeded",
+			"url", u.String(),
+			"duration_ms", time.Since(start).Milliseconds(),
+		)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

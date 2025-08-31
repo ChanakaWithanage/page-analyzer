@@ -94,21 +94,24 @@ flowchart TD
 
 ## 5. Observability
 
-Structured logging is included at key points; future improvements can add Prometheus metrics and OpenTelemetry tracing.
+- Structured logging with slog at gateway, analyzer, fetch, parser, linkcheck.
+- JSON error responses unify frontend/backend error flow.
+- Optional /debug/pprof endpoint (profiling).
+- Optional Prometheus metrics (requests, errors).
 
 ---
 
-## 6. Testing Strategy
+## 6. Testing
 
-Unit tests cover analyzer orchestration, fetch client behavior, parser accuracy, link checker concurrency, and gateway API responses.  
-Integration tests simulate full `/api/analyze` requests against local fake HTML pages.
+- Unit tests for analyzer, fetch, parser, link checker, gateway.
+- Integration tests simulate full /api/analyze.
 
 ---
 
 ## 7. Deployment
 
-Backend is a Go binary (Dockerized with small base image).  
-Frontend is a React build served from a static host (Netlify, S3+CloudFront).  
-Configuration is injected via environment variables; health check available at `/healthz`.
-
----
+- Backend → Go binary, Dockerized (alpine base).
+- Frontend → React static build, served via nginx.
+- Docker Compose bundles backend+frontend.
+- Config injected via env vars.
+- Health endpoint: /healthz

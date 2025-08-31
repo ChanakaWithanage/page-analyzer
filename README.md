@@ -12,6 +12,8 @@ The project consists of:
 ## 📑 Table of Contents
 
 - [Features](#features)
+- [Technologies Used](#technologies-used)
+- [External Dependencies](#external-dependencies)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
 - [Running Tests](#running-tests)
@@ -35,11 +37,41 @@ The project consists of:
 
 ---
 
+## Technologies Used
+
+### Backend
+- Go 1.23+
+- net/http (standard server)
+- slog (structured logging)
+- goquery + x/net/html (DOM parsing)
+- sync.WaitGroup, channels (concurrency)
+- Prometheus client (metrics)
+
+### Frontend
+- React 18 + TypeScript
+- Vite (build tool)
+- TailwindCSS (styling)
+
+### Infra
+- Docker + Docker Compose
+- Nginx (serves frontend in container)
+
+---
+
+## External Dependencies
+
+- `github.com/PuerkitoBio/goquery` → HTML parsing
+- `golang.org/x/net/html` → DOM parsing
+- `log/slog` → structured logging
+- React, Vite, Tailwind, TypeScript → frontend stack
+
+---
+
 ## 📂 Project Structure
 
 ```bash
 page-analyzer/
-├── backend/                # Go backend
+├── backend/
 │   ├── cmd/web/            # Main entrypoint
 │   ├── internal/
 │   │   ├── analyzer/       # Core orchestration
@@ -48,9 +80,9 @@ page-analyzer/
 │   │   ├── linkcheck/      # Concurrent link validation
 │   │   └── gateway/        # HTTP handlers
 │   └── pkg/contract/       # Shared DTOs
-├── frontend/               # React + TypeScript + Tailwind frontend
+├── frontend/               # React + TypeScript + Tailwind
 ├── docs/                   # Documentation
-│   └── ARCHITECTURE.md     # Architecture decisions
+│   └── ARCHITECTURE.md
 └── deploy/                 # Docker manifests
 ```
 
@@ -154,7 +186,6 @@ Detailed design and architectural decisions can be found in:
 ## Future Improvements
 
 - Caching analysis results
-- Asynchronous processing with worker queues
 - Database storage for history
 - Authentication and rate limiting
 - CI/CD integration

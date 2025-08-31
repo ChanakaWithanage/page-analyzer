@@ -1,13 +1,15 @@
+
 # Page Analyzer – Architecture
 
 ## 1. Overview
-The Page Analyzer backend is a Go-based JSON API that fetches and analyzes web pages.  
-It extracts:
+Page Analyzer is a cloud-ready web application with a **Go backend** and a **React + TypeScript frontend**.
+
+It analyzes web pages to extract:
 - HTML version
 - Title
 - Heading structure (h1–h6)
-- Internal/external links
-- Inaccessible links
+- Internal vs external links
+- Inaccessible/broken links
 - Presence of login forms
 
 A React frontend consumes this API.
@@ -17,101 +19,126 @@ A React frontend consumes this API.
 ## 2. High-Level Architecture
 ```mermaid
 flowchart TD
-    A[React Frontend: Vite + TS + Tailwind] --> B[Go Gateway Layer: HTTP Handlers]
-    B --> C[Analyzer Service]
-    C --> D[Fetch Client: HTTP + SSRF Guard]
-    C --> E[Parser: goquery + html]
-    C --> F[Link Checker: Concurrency Control]
-    G[Config: Env Vars] --> C
-    G --> D
+  subgraph FE["Frontend - React + TS + Tailwind"]
+    A["UI Components"] --> B["API Client / Fetch"]
+  end
+
+  subgraph BE["Backend - Go Services"]
+    B1["Gateway Layer (HTTP Handlers)"] --> B2["Analyzer Service"]
+    B2 --> B3["Fetch Client: HTTP + SSRF Guard"]
+    B2 --> B4["Parser: DOM + goquery"]
+    B2 --> B5["Link Checker: Concurrency Control"]
+    C["Config: Env Vars"] --> B2
+    C --> B3
+  end
+
+  FE --> BE
+  BE --> EXT["External Websites"]
+  BE --> OBS["Prometheus + pprof + Structured Logs"]
+
 ```
-----
+
+---
 
 ## 3. Layered Design
 
 ### Gateway (`internal/gateway`)
-- Exposes `/api/analyze` JSON API.
-- Validates request body, ensures URL is well-formed.
-- Handles errors with proper HTTP status codes.
-- Delegates analysis work to `analyzer.Service`.
-
----
+- Exposes REST API `/api/analyze` and `/healthz`.
+- Validates request JSON with regex + url.Parse.
+- Unified error responses for frontend.
+- Wraps handlers with **CORS, structured logging, Prometheus middleware**.
 
 ### Analyzer (`internal/analyzer`)
-- Orchestrates fetch, parse, and link validation.
-- Applies **context-based timeouts**.
-- Produces a structured `contract.AnalyzeResult`.
-
----
+- Orchestrates **fetch → parse → classify → validate links**.
+- Applies **timeouts at every stage** using context.Context.
+- Uses concurrency + cancellation to handle large pages efficiently.
+- Produces structured `AnalyzeResult` DTO for frontend consumption.
 
 ### Fetch (`internal/fetch`)
-- Wraps `http.Client`.
-- Enforces:
-  - Redirect limits
-  - Max response size
-  - SSRF protection (blocks private IPs by default)
-  - Configurable timeouts
-
----
+- Hardened HTTP client with:
+    - Redirect limits
+    - Max response size caps
+    - **SSRF guard** (blocks local/private IPs)
+    - Configurable request timeouts
+- Supports toggle for local testing.
 
 ### Parser (`internal/parser`)
-- Uses `goquery` + `x/net/html`.
-- Extracts:
-  - Title
-  - Headings (h1–h6)
-  - Links
-  - Doctype (HTML5, XHTML, HTML4.x, unknown)
-  - Login form presence
-
----
+- Uses `goquery` + `golang.org/x/net/html` to parse DOM.
+- Extracts metadata:
+    - Doctype → infer HTML version
+    - `<title>` tag
+    - Headings (h1–h6) counts
+    - Anchor links
+    - Login form detection (password fields heuristic).
 
 ### Link Checker (`internal/linkcheck`)
-- Concurrently validates links with `HEAD`/`GET`.
-- Enforces:
-  - Global concurrency limit
-  - Per-host concurrency limit
-- Uses per-link timeout.
-
----
+- Validates links concurrently with **worker pools**.
+- Global + per-host concurrency limits prevent overload.
+- Uses **HEAD requests with per-link timeouts**.
+- Returns structured results with status codes and errors.
 
 ### Config (`internal/config`)
-- Loads runtime parameters from environment:
-  - `PORT`
-  - `FETCH_TIMEOUT_SECONDS`
-  - `FETCH_MAX_REDIRECTS`
-  - `FETCH_MAX_BYTES`
+- Injected from **environment variables** (12-Factor compliant):
+    - `PORT`, `FETCH_TIMEOUT_SECONDS`, `FETCH_MAX_REDIRECTS`, `FETCH_MAX_BYTES`
 
 ---
 
-## 4. Key Decisions & Tradeoffs
+## 4. Cloud & Microservice Readiness
 
-- **Security-first fetch** with SSRF guard and size caps prevents misuse.
-- **Timeouts** applied at every stage ensure responsiveness but can lead to false negatives if too strict.
-- **Concurrency limits** prevent system overload when analyzing pages with many links.
-- **Frontend/Backend split** enables independent evolution and deployment.
+- **12-Factor principles**: stateless service, config via env vars, health checks.
+- **Observability**: structured logs (slog), Prometheus metrics, optional pprof profiling.
+- **Security-first fetch**: SSRF guard, size caps, redirect control.
+- **Scalability**:
+    - Horizontally scalable (stateless containers).
+    - Concurrency limits in link checker avoid noisy-neighbor issues.
+- **Deployability**:
+    - Dockerized backend + frontend.
+    - Compose for local dev, Kubernetes manifests can be added for cloud.
+- **Service Decomposition Future**:
+    - Analyzer can be split into microservices (e.g., FetchService, ParseService, LinkService) connected via a message bus.
+
 
 ---
 
 ## 5. Observability
 
-- Structured logging with slog at gateway, analyzer, fetch, parser, linkcheck.
-- JSON error responses unify frontend/backend error flow.
-- Optional /debug/pprof endpoint (profiling).
-- Optional Prometheus metrics (requests, errors).
+- **Logging**: Structured logs with `slog`, contextual fields (url, duration, errors).
+- **Metrics**: Prometheus counters/histograms for requests, errors, latencies.
+- **Profiling**: Go `pprof` exposed on dedicated port.
+- **Health Probes**: `/healthz` endpoint for container orchestration (K8s, ECS).
 
 ---
 
 ## 6. Testing
 
-- Unit tests for analyzer, fetch, parser, link checker, gateway.
-- Integration tests simulate full /api/analyze.
+- **Unit tests**: analyzer, fetch client, parser, link checker, gateway.
+- **Integration tests**: run full `/api/analyze` against local test servers.
+- **Coverage**: ~80% (excluding glue/config/bootstrap).
+- **CI-ready**: can run in GitHub Actions or GitLab CI with `make coverage`.
 
 ---
 
 ## 7. Deployment
 
-- Backend → Go binary, Dockerized (alpine base).
-- Frontend → React static build, served via nginx.
-- Docker Compose bundles backend+frontend.
-- Config injected via env vars.
-- Health endpoint: /healthz
+- Backend → small Go binary (multi-stage Docker build).
+- Frontend → React static build served via nginx.
+- Docker Compose → for local dev.
+- Config via env vars injected at runtime.
+
+---
+
+## 8. Frontend UI
+
+- Success response
+![img_1.png](img_1.png)
+
+- Error response 
+![img_2.png](img_2.png)
+---
+
+## 9. Future Improvements
+
+- Caching results.
+- Authentication & rate limiting.
+- CI/CD pipelines with Docker image publishing.
+- UI improvements in Frontend

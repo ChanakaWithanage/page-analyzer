@@ -99,7 +99,8 @@ page-analyzer/
 ### Backend
 ```bash
 cd backend
-go run ./cmd/web
+go mod tidy        # install dependencies
+go run ./cmd/web   # start backend
 ```
 ##### The API will be available at http://localhost:8080
 

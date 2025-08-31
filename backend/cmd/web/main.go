@@ -8,6 +8,8 @@ import (
 	"os/signal"
 	"time"
 
+	_ "net/http/pprof"
+
 	"github.com/chanaka-withanage/page-analyzer/internal/analyzer"
 	"github.com/chanaka-withanage/page-analyzer/internal/config"
 	"github.com/chanaka-withanage/page-analyzer/internal/fetch"
@@ -33,6 +35,17 @@ func main() {
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
+
+    // 🔥 Start pprof
+    if cfg.EnablePprof {
+        go func() {
+            addr := "localhost:" + cfg.PprofPort
+            slog.Info("pprof enabled", "addr", addr)
+            if err := http.ListenAndServe(addr, nil); err != nil && err != http.ErrServerClosed {
+                slog.Error("pprof server error", "err", err)
+            }
+        }()
+    }
 
 	go func() {
 		slog.Info("server starting", "addr", srv.Addr)

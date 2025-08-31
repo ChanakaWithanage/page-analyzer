@@ -4,8 +4,10 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+	"fmt"
 
 	"github.com/chanaka-withanage/page-analyzer/internal/analyzer"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type server struct {
@@ -20,33 +22,39 @@ func NewMuxWithService(svc *analyzer.Service) http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+	mux.Handle("/metrics", promhttp.Handler())
 
 	return withCORS(withLogging(mux))
 }
 
-type statusRecorder struct {
+type responseRecorder struct {
 	http.ResponseWriter
 	status int
 }
 
-func (r *statusRecorder) WriteHeader(code int) {
-	r.status = code
-	r.ResponseWriter.WriteHeader(code)
+func (rr *responseRecorder) WriteHeader(code int) {
+	rr.status = code
+	rr.ResponseWriter.WriteHeader(code)
 }
 
 func withLogging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+        start := time.Now()
+        rec := &responseRecorder{ResponseWriter: w, status: 200}
 
-		next.ServeHTTP(rec, r)
+        next.ServeHTTP(rec, r)
 
-		slog.Info("request completed",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"status", rec.status,
-			"duration_ms", time.Since(start).Milliseconds(),
-			"remote_addr", r.RemoteAddr,
-		)
-	})
+        duration := time.Since(start).Seconds()
+        slog.Info("request completed",
+        			"method", r.Method,
+        			"path", r.URL.Path,
+        			"status", rec.status,
+        			"duration_ms", time.Since(start).Milliseconds(),
+        			"remote_addr", r.RemoteAddr,
+        		)
+
+        // Prometheus metrics
+        requestsTotal.WithLabelValues(r.URL.Path, r.Method, fmt.Sprint(rec.status)).Inc()
+        requestDuration.WithLabelValues(r.URL.Path).Observe(duration)
+    })
 }

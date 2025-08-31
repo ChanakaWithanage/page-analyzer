@@ -12,6 +12,8 @@ type Config struct {
 	FetchTimeout time.Duration
 	MaxRedirects int
 	MaxBytes     int64
+	EnablePprof     bool
+    PprofPort       string
 }
 
 func Load() Config {
@@ -24,6 +26,8 @@ func Load() Config {
 		FetchTimeout: time.Duration(timeoutSec) * time.Second,
 		MaxRedirects: maxRedirects,
 		MaxBytes:     maxBytes,
+		EnablePprof:  getEnv("ENABLE_PPROF", "true") == "true",
+        PprofPort:    getEnv("PPROF_PORT", "6060"),
 	}
 
 	slog.Info("configuration loaded",
@@ -31,6 +35,8 @@ func Load() Config {
 		"fetch_timeout", cfg.FetchTimeout,
 		"max_redirects", cfg.MaxRedirects,
 		"max_bytes", cfg.MaxBytes,
+		"ENABLE_PPROF", cfg.EnablePprof,
+		"PPROF_PORT", cfg.PprofPort,
 	)
 
 	return cfg

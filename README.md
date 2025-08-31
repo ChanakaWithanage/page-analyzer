@@ -16,7 +16,8 @@ The project consists of:
 - [External Dependencies](#external-dependencies)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
-- [Running Tests](#running-tests)
+- [Observability](#-observability)
+- [Testing & Coverage](#testing--coverage)
 - [Deployment](#deployment)
 - [Docker Setup](#docker-setup)
 - [Documentation](#documentation)
@@ -112,18 +113,65 @@ npm run dev
 
 ---
 
-## Running Tests
+## 🛠 Observability
 
-Run all backend tests:
+### pprof Profiling
+The backend can expose Go’s built-in **pprof** profiler for CPU, heap, and goroutine debugging.  
+
+profiling endpoints are available at:
+
+- http://localhost:6060/debug/pprof/
+- Example CPU profile: 
+```bash
+  go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
+```
+
+This runs a 30s CPU profile and opens the interactive analysis shell (`top10`, `list`, `web`, etc.).
+
+---
+
+### Prometheus Metrics
+The backend can also expose **Prometheus-compatible metrics** to monitor requests and latencies.
+
+Metrics are exposed at:
+
+- http://localhost:8080/metrics
+
+Example metrics:
+```bash
+page_analyzer_requests_total{path="/api/analyze",method="POST",status="200"} 5
+page_analyzer_request_duration_seconds_bucket{path="/api/analyze",le="0.5"} 3
+```
+You can scrape these with Prometheus and visualize in Grafana.
+
+---
+
+##  Testing & Coverage
+
+Unit tests cover core logic (analyzer orchestration, fetch client, parser, link checker, gateway).  
+Some glue code (like `cmd/web`, `config`, `pkg/contract`) is intentionally excluded from coverage reports.
+
+### Run Tests
 ```bash
 cd backend
 go test ./... -v
 ```
-Run with coverage:
+### Coverage
+Focused coverage on business logic packages:
 ```bash
 cd backend
-go test ./... -cover
+go test -cover ./internal/analyzer ./internal/fetch ./internal/gateway ./internal/linkcheck ./internal/parser
 ```
+
+Coverage results:
+
+- internal/analyzer → ~85%
+- internal/fetch → ~75%
+- internal/gateway → ~70%
+- internal/linkcheck → ~85%
+- internal/parser → ~68%
+
+Overall coverage (excluding bootstrap/config) is ~80%.
 
 ---
 

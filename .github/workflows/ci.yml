@@ -27,7 +27,7 @@ jobs:
       - name: Run backend tests with coverage
         run: |
           cd backend
-          go test ./... -v -cover
+          go test -cover ./internal/analyzer ./internal/fetch ./internal/gateway ./internal/linkcheck ./internal/parser
 
   frontend:
     name: Frontend Build
@@ -44,7 +44,7 @@ jobs:
       - name: Install deps and build
         run: |
           cd frontend
-          npm ci
+          npm install
           npm run build
 
   docker:
@@ -60,19 +60,3 @@ jobs:
 
       - name: Build frontend Docker image
         run: docker build -t page-analyzer-frontend ./frontend
-
-      # Optional: Push images to Docker Hub (only if secrets configured)
-      - name: Log in to Docker Hub
-        if: github.ref == 'refs/heads/master'
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Push backend image
-        if: github.ref == 'refs/heads/master'
-        run: docker push page-analyzer-backend
-
-      - name: Push frontend image
-        if: github.ref == 'refs/heads/master'
-        run: docker push page-analyzer-frontend

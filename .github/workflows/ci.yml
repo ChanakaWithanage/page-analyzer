@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ develop, master ]
+  push:
+    branches: [ develop, master ]
+
+jobs:
+  backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Backend dependencies
+        run: |
+          cd backend
+          go mod tidy
+
+      - name: Run backend tests with coverage
+        run: |
+          cd backend
+          go test -cover ./internal/analyzer ./internal/fetch ./internal/gateway ./internal/linkcheck ./internal/parser
+
+  frontend:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install deps and build
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build backend Docker image
+        run: docker build -t page-analyzer-backend ./backend
+
+      - name: Build frontend Docker image
+        run: docker build -t page-analyzer-frontend ./frontend

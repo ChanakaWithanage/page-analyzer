@@ -1,4 +1,5 @@
 # Page Analyzer
+[![CI](https://github.com/ChanakaWithanage/page-analyzer/actions/workflows/ci.yml/badge.svg)](https://github.com/ChanakaWithanage/page-analyzer/actions/workflows/ci.yml)
 
 A web application that fetches and analyzes web pages to extract useful metadata such as HTML version, headings structure, internal/external links, inaccessible links, and presence of login forms.
 
@@ -20,7 +21,9 @@ The project consists of:
 - [Testing & Coverage](#testing--coverage)
 - [Deployment](#deployment)
 - [Docker Setup](#docker-setup)
+- [CI/CD Pipeline](#cicd-pipeline)
 - [Documentation](#documentation)
+- [Additional Improvements](#additional-improvements)
 - [Future Improvements](#future-improvements)
 
 ---
@@ -33,6 +36,7 @@ The project consists of:
 - Distinguishes **internal vs external links**
 - Detects **inaccessible/broken links**
 - Identifies **login forms**
+- In-memory caching **to avoid repeated fetches of the same URL**
 - Secure fetching with **SSRF protection, redirect limits, and response size caps**
 - Configurable via environment variables
 
@@ -47,6 +51,7 @@ The project consists of:
 - goquery + x/net/html (DOM parsing)
 - sync.WaitGroup, channels (concurrency)
 - Prometheus client (metrics)
+- github.com/patrickmn/go-cache (in-memory caching)
 
 ### Frontend
 - React 18 + TypeScript
@@ -222,7 +227,18 @@ docker run -p 3000:80 page-analyzer-frontend
 ```
 The frontend container uses nginx and proxies API calls to the backend.
 
+---
 
+## CI/CD Pipeline
+
+This project includes a GitHub Actions CI pipeline.
+
+- Runs on every pull request and push to `develop` and `master`.
+- Executes:
+    - `go test ./... -cover` for backend unit tests and coverage
+    - `npm run build` for frontend build validation
+- Uploads test results as GitHub workflow artifacts.
+- Adds a build badge to the top of this README to show status.
 ---
 
 ## Documentation
@@ -232,9 +248,14 @@ Detailed design and architectural decisions can be found in:
 
 ---
 
+## Additional Improvements
+- Added in-memory caching layer with TTL, reducing repeated fetches and speeding up analysis.
+- Added a GitHub Actions CI pipeline.
+- Enhanced structured logging around cache hits/misses.
+
+
 ## Future Improvements
 
-- Caching analysis results
 - Database storage for history
 - Authentication and rate limiting
 - CI/CD integration

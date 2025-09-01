@@ -28,6 +28,7 @@ flowchart TD
     B2 --> B3["Fetch Client: HTTP + SSRF Guard"]
     B2 --> B4["Parser: DOM + goquery"]
     B2 --> B5["Link Checker: Concurrency Control"]
+    B2 --- B6["In-Memory TTL Cache (go-cache)"]
     C["Config: Env Vars"] --> B2
     C --> B3
   end
@@ -35,6 +36,7 @@ flowchart TD
   FE --> BE
   BE --> EXT["External Websites"]
   BE --> OBS["Prometheus + pprof + Structured Logs"]
+
 
 ```
 
@@ -53,6 +55,7 @@ flowchart TD
 - Applies **timeouts at every stage** using context.Context.
 - Uses concurrency + cancellation to handle large pages efficiently.
 - Produces structured `AnalyzeResult` DTO for frontend consumption.
+- Uses an in-process TTL cache (patrickmn/go-cache) to avoid re-fetching and re-parsing the same URL within a short window.
 
 ### Fetch (`internal/fetch`)
 - Hardened HTTP client with:
@@ -105,7 +108,7 @@ flowchart TD
 - **Logging**: Structured logs with `slog`, contextual fields (url, duration, errors).
 - **Metrics**: Prometheus counters/histograms for requests, errors, latencies.
 - **Profiling**: Go `pprof` exposed on dedicated port.
-- **Health Probes**: `/healthz` endpoint for container orchestration (K8s, ECS).
+- **Health Probes**: `/healthz` endpoint for container orchestration.
 
 ---
 
@@ -138,7 +141,6 @@ flowchart TD
 
 ## 9. Future Improvements
 
-- Caching results.
 - Authentication & rate limiting.
 - CI/CD pipelines with Docker image publishing.
 - UI improvements in Frontend

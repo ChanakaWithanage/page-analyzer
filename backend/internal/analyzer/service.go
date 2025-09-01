@@ -12,15 +12,21 @@ import (
 	"github.com/chanaka-withanage/page-analyzer/internal/linkcheck"
 	"github.com/chanaka-withanage/page-analyzer/internal/parser"
 	"github.com/chanaka-withanage/page-analyzer/pkg/contract"
+	"github.com/patrickmn/go-cache"
 )
 
 type Service struct {
 	fetch          *fetch.Client
 	defaultTimeout time.Duration
+	cache          *cache.Cache
 }
 
 func New(fetchClient *fetch.Client) *Service {
-	return &Service{fetch: fetchClient, defaultTimeout: 30 * time.Second}
+	return &Service{
+        fetch: fetchClient,
+        defaultTimeout: 30 * time.Second,
+        cache:          cache.New(5*time.Minute, 10*time.Minute), // default 5m TTL, purge every 10m
+	}
 }
 
 func (s *Service) SetDefaultTimeout(d time.Duration) {
@@ -28,6 +34,16 @@ func (s *Service) SetDefaultTimeout(d time.Duration) {
 }
 
 func (s *Service) Analyze(ctx context.Context, p contract.AnalyzeParams) (*contract.AnalyzeResult, error) {
+
+    // check cache
+    if v, found := s.cache.Get(p.URL); found {
+        if res, ok := v.(*contract.AnalyzeResult); ok {
+            slog.Info("cache hit", "url", p.URL)
+            return res, nil
+        }
+    }
+
+    // Start fresh analysis
 	timeout := s.defaultTimeout
 	if p.FetchTimeoutSeconds > 0 {
 		timeout = time.Duration(p.FetchTimeoutSeconds) * time.Second
@@ -109,6 +125,12 @@ func (s *Service) Analyze(ctx context.Context, p contract.AnalyzeParams) (*contr
 		"title", res.Title,
 		"headings", len(res.Headings),
 	)
+
+    // Add to cache
+    if err == nil {
+        s.cache.Set(p.URL, res, cache.DefaultExpiration)
+        slog.Info("cache store", "url", p.URL)
+    }
 
 	return res, nil
 }

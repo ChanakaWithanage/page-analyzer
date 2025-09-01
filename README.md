@@ -21,6 +21,7 @@ The project consists of:
 - [Deployment](#deployment)
 - [Docker Setup](#docker-setup)
 - [Documentation](#documentation)
+- [Additional Improvements](#additional-improvements)
 - [Future Improvements](#future-improvements)
 
 ---
@@ -33,6 +34,7 @@ The project consists of:
 - Distinguishes **internal vs external links**
 - Detects **inaccessible/broken links**
 - Identifies **login forms**
+- In-memory caching **to avoid repeated fetches of the same URL**
 - Secure fetching with **SSRF protection, redirect limits, and response size caps**
 - Configurable via environment variables
 
@@ -47,6 +49,7 @@ The project consists of:
 - goquery + x/net/html (DOM parsing)
 - sync.WaitGroup, channels (concurrency)
 - Prometheus client (metrics)
+- github.com/patrickmn/go-cache (in-memory caching)
 
 ### Frontend
 - React 18 + TypeScript
@@ -232,9 +235,13 @@ Detailed design and architectural decisions can be found in:
 
 ---
 
+## Additional Improvements
+- Added in-memory caching layer with TTL, reducing repeated fetches and speeding up analysis.
+- Enhanced structured logging around cache hits/misses.
+
+
 ## Future Improvements
 
-- Caching analysis results
 - Database storage for history
 - Authentication and rate limiting
 - CI/CD integration

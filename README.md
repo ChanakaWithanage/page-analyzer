@@ -1,4 +1,5 @@
 # Page Analyzer
+![CI](https://github.com/ChanakaWithanage/page-analyzer/actions/workflows/ci.yml/badge.svg)
 
 A web application that fetches and analyzes web pages to extract useful metadata such as HTML version, headings structure, internal/external links, inaccessible links, and presence of login forms.
 

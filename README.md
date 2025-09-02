@@ -103,6 +103,8 @@ page-analyzer/
 
 ### Backend
 ```bash
+git clone https://github.com/ChanakaWithanage/page-analyzer
+
 cd backend
 go mod tidy        # install dependencies
 go run ./cmd/web   # start backend

@@ -17,7 +17,7 @@ type Config struct {
 }
 
 func Load() Config {
-	timeoutSec := getEnvAsInt("FETCH_TIMEOUT_SECONDS", 30)
+	timeoutSec := getEnvAsInt("FETCH_TIMEOUT_SECONDS", 300)
 	maxRedirects := getEnvAsInt("FETCH_MAX_REDIRECTS", 5)
 	maxBytes := getEnvAsInt64("FETCH_MAX_BYTES", 4<<20)
 

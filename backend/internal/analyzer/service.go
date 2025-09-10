@@ -24,7 +24,7 @@ type Service struct {
 func New(fetchClient *fetch.Client) *Service {
 	return &Service{
         fetch: fetchClient,
-        defaultTimeout: 30 * time.Second,
+        defaultTimeout: 5 * time.Minute,
         cache:          cache.New(5*time.Minute, 10*time.Minute), // default 5m TTL, purge every 10m
 	}
 }

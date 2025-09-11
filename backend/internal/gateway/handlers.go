@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -30,28 +29,20 @@ func (s *server) analyze(w http.ResponseWriter, r *http.Request) {
 	}
 
 	raw := strings.TrimSpace(body.URL)
-	if raw == "" {
-		slog.Warn("missing url field in request")
-		writeError(w, http.StatusBadRequest, "url is required")
-		return
-	}
+    if raw == "" {
+    	slog.Warn("missing url field in request")
+    	writeError(w, http.StatusBadRequest, "url is required")
+    	return
+    }
 
-	// regex validation
-	if !isValidURL(raw) {
-		slog.Warn("url failed regex validation", "url", raw)
-		writeError(w, http.StatusBadRequest, "please provide a valid http(s) URL")
-		return
-	}
+    u, err := normalizeAndValidateURL(raw)
+    if err != nil {
+    	slog.Warn("url failed validation", "url", raw, "err", err)
+    	writeError(w, http.StatusBadRequest, "please provide a valid http(s) URL")
+    	return
+    }
 
-	// strict parsing
-	u, err := url.Parse(raw)
-	if err != nil || u.Host == "" {
-		slog.Warn("invalid URL after parse", "url", raw, "err", err)
-		writeError(w, http.StatusBadRequest, "please provide a valid http(s) URL")
-		return
-	}
-
-	slog.Info("starting analysis", "url", u.String())
+    slog.Info("starting analysis", "url", u.String())
 
 	res, err := s.svc.Analyze(r.Context(), contract.AnalyzeParams{
 		URL: u.String(),

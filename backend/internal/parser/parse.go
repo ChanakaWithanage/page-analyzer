@@ -83,22 +83,76 @@ func Parse(r io.Reader, base *url.URL) (*Parsed, error) {
 
 func detectDoctype(n *html.Node) string {
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		if c.Type == html.DoctypeNode {
-			name := strings.ToLower(c.Data)
-			if name == "html" {
-				if c.Attr == nil || len(c.Attr) == 0 {
-					return "HTML5"
-				}
-				data := strings.ToLower(c.Data)
-				if strings.Contains(data, "xhtml 1.0") {
-					return "XHTML 1.0"
-				}
-				if strings.Contains(data, "xhtml 1.1") {
-					return "XHTML 1.1"
-				}
-				return "HTML 4.x"
+		if c.Type != html.DoctypeNode {
+			continue
+		}
+
+		name := strings.ToLower(strings.TrimSpace(c.Data))
+		if name != "html" {
+			if name == "" {
+				return "unknown"
+			}
+			return strings.ToUpper(name)
+		}
+
+		var publicID, systemID string
+		for _, a := range c.Attr {
+			switch strings.ToLower(a.Key) {
+			case "public":
+				publicID = strings.ToLower(strings.TrimSpace(a.Val))
+			case "system":
+				systemID = strings.ToLower(strings.TrimSpace(a.Val))
 			}
 		}
+
+		if publicID == "" && systemID == "" {
+			return "HTML5"
+		}
+		if systemID == "about:legacy-compat" && publicID == "" {
+			return "HTML5 (legacy-compat)"
+		}
+
+		if strings.Contains(publicID, "xhtml 1.1") {
+			return "XHTML 1.1"
+		}
+
+		if strings.Contains(publicID, "xhtml 1.0") {
+			switch {
+			case strings.Contains(publicID, "strict"):
+				return "XHTML 1.0 Strict"
+			case strings.Contains(publicID, "transitional"):
+				return "XHTML 1.0 Transitional"
+			case strings.Contains(publicID, "frameset"):
+				return "XHTML 1.0 Frameset"
+			default:
+				return "XHTML 1.0"
+			}
+		}
+
+		if strings.Contains(publicID, "html 4.01") {
+			switch {
+			case strings.Contains(publicID, "strict"):
+				return "HTML 4.01 Strict"
+			case strings.Contains(publicID, "transitional"):
+				return "HTML 4.01 Transitional"
+			case strings.Contains(publicID, "frameset"):
+				return "HTML 4.01 Frameset"
+			default:
+				return "HTML 4.01"
+			}
+		}
+
+		if strings.Contains(publicID, "html 4.0") {
+			return "HTML 4.0"
+		}
+		if strings.Contains(publicID, "html 3.2") {
+			return "HTML 3.2"
+		}
+		if strings.Contains(publicID, "html 2.0") {
+			return "HTML 2.0"
+		}
+
+		return "HTML (doctype with identifiers)"
 	}
 	return "unknown"
 }

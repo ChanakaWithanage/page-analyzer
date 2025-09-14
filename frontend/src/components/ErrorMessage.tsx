@@ -1,12 +1,22 @@
+import React from "react";
 
-export default function ErrorMessage({ message }: { message: string }) {
+type Props = {
+  message: string;
+  className?: string;
+};
+
+export default function ErrorMessage({ message, className = "" }: Props) {
   return (
     <div
-      className="w-full max-w-xl bg-red-100 border border-red-400 text-red-700
-                 px-4 py-3 rounded-lg mb-4"
       role="alert"
+      className={
+        "w-full rounded-lg border border-red-200/60 bg-red-50 p-4 text-red-900 " +
+        "dark:border-red-400/40 dark:bg-red-950/30 dark:text-red-100 " +
+        className
+      }
     >
-      <span className="block font-medium">Error:</span> {message}
+      <div className="font-semibold">Error:</div>
+      <p className="mt-1">{message}</p>
     </div>
   );
 }
